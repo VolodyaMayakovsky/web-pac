@@ -1,4 +1,3 @@
-// backend/server.js
 import express from 'express';
 import { Pool } from 'pg';
 import cors from 'cors';
@@ -11,20 +10,19 @@ const port = 3001;
 const pool = new Pool({
   user: 'postgres',
   host: 'localhost',
-  database: 'edu_platform',     // ваша БД
-  password: 'your_password',    // укажите пароль
+  database: 'edu_platform',
+  password: 'your_password',   // измените
   port: 5432,
 });
 
-pool.on('connect', () => console.log('✅ Подключение к PostgreSQL установлено'));
-pool.on('error', (err) => console.error('❌ Ошибка БД:', err));
+pool.on('connect', () => console.log('✅ PostgreSQL connected'));
+pool.on('error', (err) => console.error('❌ DB error:', err));
 
 app.use(cors());
 app.use(express.json());
 
-const JWT_SECRET = 'your-super-secret-key-change-me';
+const JWT_SECRET = 'edu-platform-secret-key-change-me';
 
-// Middleware для проверки JWT
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
@@ -36,19 +34,24 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
-// ========== Аутентификация и пользователи ==========
+const isTeacher = (req, res, next) => {
+  if (req.user.role !== 'teacher') return res.status(403).json({ error: 'Только преподаватель' });
+  next();
+};
+
+// ========== Аутентификация ==========
 app.post('/api/register', async (req, res) => {
-  const { email, password, firstName, lastName, middleName, phone, address, role } = req.body;
+  const { email, password, firstName, lastName, role } = req.body;
   try {
     const existing = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
-    if (existing.rows.length) return res.status(400).json({ error: 'Email уже занят' });
+    if (existing.rows.length) return res.status(400).json({ error: 'Email уже используется' });
 
     const hashed = await bcrypt.hash(password, 10);
     const result = await pool.query(
-      `INSERT INTO users (email, password, first_name, last_name, middle_name, phone, address, role)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING id, email, first_name, last_name, middle_name, phone, address, role, created_at`,
-      [email, hashed, firstName, lastName, middleName, phone, address, role || 'student']
+      `INSERT INTO users (email, password, first_name, last_name, role)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id, email, first_name, last_name, role`,
+      [email, hashed, firstName, lastName, role || 'student']
     );
     const user = result.rows[0];
     const token = jwt.sign({ userId: user.id, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
@@ -81,99 +84,63 @@ app.post('/api/login', async (req, res) => {
 app.get('/api/user', authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(
-      'SELECT id, email, first_name, last_name, middle_name, phone, address, role, created_at FROM users WHERE id = $1',
+      'SELECT id, email, first_name, last_name, role FROM users WHERE id = $1',
       [req.user.userId]
     );
     if (!result.rows.length) return res.status(404).json({ error: 'Пользователь не найден' });
     res.json(result.rows[0]);
   } catch (err) {
-    console.error(err);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
 });
 
 app.put('/api/user', authenticateToken, async (req, res) => {
-  const { firstName, lastName, middleName, phone, address } = req.body;
+  const { firstName, lastName } = req.body;
   try {
     const result = await pool.query(
-      `UPDATE users SET first_name=$1, last_name=$2, middle_name=$3, phone=$4, address=$5, updated_at=CURRENT_TIMESTAMP
-       WHERE id=$6 RETURNING id, email, first_name, last_name, middle_name, phone, address, role`,
-      [firstName, lastName, middleName, phone, address, req.user.userId]
+      `UPDATE users SET first_name=$1, last_name=$2
+       WHERE id=$3 RETURNING id, email, first_name, last_name, role`,
+      [firstName, lastName, req.user.userId]
     );
-    if (!result.rows.length) return res.status(404).json({ error: 'Пользователь не найден' });
     res.json(result.rows[0]);
   } catch (err) {
-    console.error(err);
     res.status(500).json({ error: 'Ошибка обновления' });
   }
 });
 
-// ========== Расписание (CRUD) ==========
-// Получить расписание для текущего пользователя (или все, если преподаватель)
+// ========== Расписание ==========
 app.get('/api/schedules', authenticateToken, async (req, res) => {
   try {
-    let query, params;
+    let query;
     if (req.user.role === 'teacher') {
-      // Преподаватель видит все расписания, которые он создал (или можно все)
       query = 'SELECT * FROM schedules WHERE user_id = $1 ORDER BY day_of_week, start_time';
-      params = [req.user.userId];
+      const result = await pool.query(query, [req.user.userId]);
+      res.json(result.rows);
     } else {
-      // Студент видит расписания, где group_name совпадает с его группой (пока упрощённо – все расписания)
-      // Для демо – все расписания (позже привяжите группу студента)
       query = 'SELECT * FROM schedules ORDER BY day_of_week, start_time';
-      params = [];
+      const result = await pool.query(query);
+      res.json(result.rows);
     }
-    const result = await pool.query(query, params);
-    res.json(result.rows);
   } catch (err) {
-    console.error(err);
     res.status(500).json({ error: 'Ошибка получения расписания' });
   }
 });
 
-// Создать занятие (только преподаватель)
-app.post('/api/schedules', authenticateToken, async (req, res) => {
-  if (req.user.role !== 'teacher') return res.status(403).json({ error: 'Доступ только преподавателям' });
-  const { title, description, lesson_type, day_of_week, start_time, end_time, location, teacher_name, group_name } = req.body;
+app.post('/api/schedules', authenticateToken, isTeacher, async (req, res) => {
+  const { title, day_of_week, start_time, end_time, location } = req.body;
   try {
     const result = await pool.query(
-      `INSERT INTO schedules (user_id, title, description, lesson_type, day_of_week, start_time, end_time, location, teacher_name, group_name)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
-      [req.user.userId, title, description, lesson_type, day_of_week, start_time, end_time, location, teacher_name, group_name]
+      `INSERT INTO schedules (user_id, title, day_of_week, start_time, end_time, location)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [req.user.userId, title, day_of_week, start_time, end_time, location]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
-    console.error(err);
     res.status(500).json({ error: 'Ошибка создания занятия' });
   }
 });
 
-// Обновить занятие (только преподаватель – владелец)
-app.put('/api/schedules/:id', authenticateToken, async (req, res) => {
-  if (req.user.role !== 'teacher') return res.status(403).json({ error: 'Доступ только преподавателям' });
-  const { id } = req.params;
-  const { title, description, lesson_type, day_of_week, start_time, end_time, location, teacher_name, group_name } = req.body;
-  try {
-    const check = await pool.query('SELECT user_id FROM schedules WHERE id = $1', [id]);
-    if (!check.rows.length) return res.status(404).json({ error: 'Занятие не найдено' });
-    if (check.rows[0].user_id !== req.user.userId) return res.status(403).json({ error: 'Не ваше занятие' });
-
-    const result = await pool.query(
-      `UPDATE schedules SET title=$1, description=$2, lesson_type=$3, day_of_week=$4, start_time=$5, end_time=$6,
-       location=$7, teacher_name=$8, group_name=$9, updated_at=CURRENT_TIMESTAMP
-       WHERE id=$10 RETURNING *`,
-      [title, description, lesson_type, day_of_week, start_time, end_time, location, teacher_name, group_name, id]
-    );
-    res.json(result.rows[0]);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Ошибка обновления' });
-  }
-});
-
-// Удалить занятие (только преподаватель – владелец)
-app.delete('/api/schedules/:id', authenticateToken, async (req, res) => {
-  if (req.user.role !== 'teacher') return res.status(403).json({ error: 'Доступ только преподавателям' });
+app.delete('/api/schedules/:id', authenticateToken, isTeacher, async (req, res) => {
   const { id } = req.params;
   try {
     const check = await pool.query('SELECT user_id FROM schedules WHERE id = $1', [id]);
@@ -183,112 +150,84 @@ app.delete('/api/schedules/:id', authenticateToken, async (req, res) => {
     await pool.query('DELETE FROM schedules WHERE id = $1', [id]);
     res.json({ message: 'Занятие удалено' });
   } catch (err) {
-    console.error(err);
     res.status(500).json({ error: 'Ошибка удаления' });
   }
 });
 
 // ========== Задания ==========
-// Получить задания для студента (его личные или для его группы)
 app.get('/api/tasks', authenticateToken, async (req, res) => {
   try {
     let query, params;
     if (req.user.role === 'teacher') {
-      // Преподаватель видит задания, которые создал
-      query = 'SELECT * FROM tasks WHERE created_by = $1 ORDER BY deadline ASC';
+      query = 'SELECT * FROM tasks WHERE created_by = $1 ORDER BY deadline';
       params = [req.user.userId];
     } else {
-      // Студент: задания, назначенные лично ему или для его группы (упрощённо – все задания)
-      query = 'SELECT * FROM tasks WHERE student_id = $1 OR group_name IS NOT NULL ORDER BY deadline ASC';
+      query = 'SELECT * FROM tasks WHERE student_id = $1 ORDER BY deadline';
       params = [req.user.userId];
     }
     const result = await pool.query(query, params);
     res.json(result.rows);
   } catch (err) {
-    console.error(err);
     res.status(500).json({ error: 'Ошибка получения заданий' });
   }
 });
 
-// Создать задание (только преподаватель)
-app.post('/api/tasks', authenticateToken, async (req, res) => {
-  if (req.user.role !== 'teacher') return res.status(403).json({ error: 'Доступ только преподавателям' });
-  const { course_name, title, description, deadline, student_id, group_name } = req.body;
+app.post('/api/tasks', authenticateToken, isTeacher, async (req, res) => {
+  const { title, course_name, deadline, student_id } = req.body;
   try {
     const result = await pool.query(
-      `INSERT INTO tasks (course_name, title, description, deadline, created_by, student_id, group_name, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending') RETURNING *`,
-      [course_name, title, description, deadline, req.user.userId, student_id || null, group_name || null]
+      `INSERT INTO tasks (title, course_name, deadline, created_by, student_id)
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [title, course_name, deadline, req.user.userId, student_id]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
-    console.error(err);
     res.status(500).json({ error: 'Ошибка создания задания' });
   }
 });
 
-// Обновить статус задания (студент может отметить выполненным)
 app.patch('/api/tasks/:id/status', authenticateToken, async (req, res) => {
   const { id } = req.params;
-  const { status } = req.body; // 'pending', 'in_progress', 'completed'
+  const { status } = req.body;
   try {
     const task = await pool.query('SELECT * FROM tasks WHERE id = $1', [id]);
     if (!task.rows.length) return res.status(404).json({ error: 'Задание не найдено' });
-    const taskData = task.rows[0];
-    // Студент может менять статус только своих заданий
-    if (req.user.role === 'student' && taskData.student_id !== req.user.userId) {
+    if (req.user.role === 'student' && task.rows[0].student_id !== req.user.userId) {
       return res.status(403).json({ error: 'Это не ваше задание' });
     }
-    const result = await pool.query(
-      'UPDATE tasks SET status=$1, updated_at=CURRENT_TIMESTAMP WHERE id=$2 RETURNING *',
-      [status, id]
-    );
-    res.json(result.rows[0]);
+    await pool.query('UPDATE tasks SET status = $1 WHERE id = $2', [status, id]);
+    res.json({ message: 'Статус обновлён' });
   } catch (err) {
-    console.error(err);
     res.status(500).json({ error: 'Ошибка обновления статуса' });
   }
 });
 
-// ========== Прогресс (автоматический расчёт) ==========
+// ========== Прогресс ==========
 app.get('/api/progress', authenticateToken, async (req, res) => {
   if (req.user.role !== 'student') return res.status(403).json({ error: 'Только для студентов' });
   try {
-    // Получаем все задания студента и считаем выполненные
     const tasks = await pool.query(
-      'SELECT course_name, status FROM tasks WHERE student_id = $1 OR group_name IS NOT NULL',
+      'SELECT course_name, status FROM tasks WHERE student_id = $1',
       [req.user.userId]
     );
-    const progressMap = new Map(); // course_name -> {total, completed}
-    for (const task of tasks.rows) {
-      const course = task.course_name;
-      if (!progressMap.has(course)) progressMap.set(course, { total: 0, completed: 0 });
-      const data = progressMap.get(course);
-      data.total++;
-      if (task.status === 'completed') data.completed++;
+    const courses = {};
+    for (const t of tasks.rows) {
+      if (!courses[t.course_name]) courses[t.course_name] = { total: 0, completed: 0 };
+      courses[t.course_name].total++;
+      if (t.status === 'completed') courses[t.course_name].completed++;
     }
-    const result = [];
-    for (const [course, data] of progressMap.entries()) {
-      const percent = data.total ? (data.completed / data.total) * 100 : 0;
-      result.push({
-        course_name: course,
-        total_tasks: data.total,
-        completed_tasks: data.completed,
-        percent_complete: parseFloat(percent.toFixed(2))
-      });
-    }
+    const result = Object.entries(courses).map(([name, data]) => ({
+      course_name: name,
+      total_tasks: data.total,
+      completed_tasks: data.completed,
+      percent: data.total ? Math.round((data.completed / data.total) * 100) : 0
+    }));
     res.json(result);
   } catch (err) {
-    console.error(err);
     res.status(500).json({ error: 'Ошибка получения прогресса' });
   }
 });
 
-// ========== Health check ==========
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', database: 'PostgreSQL', timestamp: new Date() });
-});
-
-app.listen(port, () => {
-  console.log(`🚀 Сервер запущен на http://localhost:${port}`);
+app.listen(port, '0.0.0.0', () => {
+  console.log(`🚀 Edu server running on port ${port}`);
 });

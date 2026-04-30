@@ -1,89 +1,148 @@
-/* ===== Новые стили для заданий и прогресса ===== */
+/* SchedulePage.css – полная версия для тёмной темы */
 
-/* Заголовок панели с переключателем ролей */
-.dashboard-header {
+.schedule-page {
+  min-height: 100vh;
+  background: var(--bg-primary, #0a0a0c);
+  padding: 40px 0;
+}
+
+.container {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
   margin-bottom: 32px;
-  gap: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border, #27272a);
 }
 
-.dashboard-header h1 {
+.page-header h1 {
+  font-size: 2rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
   margin: 0;
 }
 
-.role-switch {
-  display: flex;
-  gap: 12px;
-  background: rgba(20, 20, 26, 0.8);
-  padding: 4px;
-  border-radius: 48px;
-  border: 1px solid var(--border);
-}
-
-.role-btn {
-  background: transparent;
-  border: none;
-  padding: 8px 20px;
+.role-badge {
+  background: rgba(99, 102, 241, 0.2);
+  color: var(--accent, #6366f1);
+  padding: 6px 14px;
   border-radius: 40px;
+  font-size: 0.8rem;
   font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  color: var(--text);
 }
 
-.role-btn.active {
-  background: var(--accent);
-  color: white;
-  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.4);
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 28px;
 }
 
-/* Виджет заданий */
-.widget-tasks .task-count {
-  font-size: 0.85rem;
-  background: var(--accent-bg);
-  padding: 4px 10px;
-  border-radius: 40px;
-  color: var(--accent);
+.widget {
+  background: var(--bg-card, #18181b);
+  border: 1px solid var(--border, #27272a);
+  border-radius: 28px;
+  padding: 24px;
+  transition: transform 0.2s, border-color 0.2s;
 }
 
+.widget:hover {
+  border-color: var(--accent, #6366f1);
+  transform: translateY(-2px);
+}
+
+.widget h3 {
+  margin-bottom: 20px;
+  font-size: 1.3rem;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Календарь */
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 12px;
+}
+
+.calendar-day {
+  background: var(--bg-secondary, #111113);
+  border-radius: 20px;
+  padding: 12px 8px;
+  text-align: center;
+}
+
+.day-header {
+  font-weight: 600;
+  color: var(--accent, #6366f1);
+  margin-bottom: 12px;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+}
+
+.day-events {
+  min-height: 100px;
+}
+
+.event-item {
+  background: var(--bg-card, #18181b);
+  border-radius: 14px;
+  padding: 8px;
+  margin-bottom: 8px;
+  font-size: 0.75rem;
+  text-align: left;
+  border-left: 2px solid var(--accent, #6366f1);
+  word-break: break-word;
+}
+
+.event-location {
+  font-size: 0.65rem;
+  color: var(--text-secondary, #a1a1aa);
+  margin-top: 4px;
+}
+
+.no-event {
+  color: var(--text-secondary, #a1a1aa);
+  font-size: 0.7rem;
+}
+
+/* Задания */
 .tasks-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
+  max-height: 500px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .task-card {
-  display: flex;
-  gap: 16px;
-  padding: 16px;
-  background: var(--bg);
+  background: var(--bg-secondary, #111113);
   border-radius: 20px;
-  border: 1px solid var(--border);
+  padding: 16px;
+  display: flex;
+  gap: 14px;
+  border-left: 3px solid transparent;
   transition: all 0.2s;
 }
 
-.task-card:hover {
-  border-color: var(--accent-border);
-  transform: translateX(4px);
-}
-
 .task-card.overdue {
-  border-left: 4px solid #ef4444;
+  border-left-color: #ef4444;
   background: rgba(239, 68, 68, 0.05);
-}
-
-.task-status {
-  flex-shrink: 0;
 }
 
 .status-badge {
   display: inline-block;
-  padding: 4px 10px;
+  padding: 4px 12px;
   border-radius: 40px;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 500;
 }
 
@@ -92,7 +151,7 @@
   color: #f59e0b;
 }
 
-.status-progress {
+.status-in_progress {
   background: rgba(59, 130, 246, 0.2);
   color: #3b82f6;
 }
@@ -100,6 +159,16 @@
 .status-completed {
   background: rgba(34, 197, 94, 0.2);
   color: #22c55e;
+}
+
+.status-info {
+  background: rgba(99, 102, 241, 0.2);
+  color: var(--accent, #6366f1);
+}
+
+.status-admin {
+  background: rgba(139, 92, 246, 0.2);
+  color: #a855f7;
 }
 
 .task-content {
@@ -115,85 +184,132 @@
   display: flex;
   flex-wrap: wrap;
   gap: 16px;
-  font-size: 0.8rem;
-  opacity: 0.7;
+  font-size: 0.75rem;
+  color: var(--text-secondary, #a1a1aa);
+  margin-bottom: 8px;
 }
 
-.task-course {
-  background: var(--code-bg);
-  padding: 2px 8px;
-  border-radius: 12px;
-}
-
-.task-deadline {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.overdue-label {
+.task-deadline .overdue-label {
   color: #ef4444;
+  margin-left: 6px;
+}
+
+.task-desc {
+  font-size: 0.8rem;
+  color: var(--text-secondary, #a1a1aa);
+  margin-top: 8px;
+}
+
+.empty-message {
+  color: var(--text-secondary, #a1a1aa);
+  text-align: center;
+  padding: 24px 0;
+}
+
+/* Прогресс */
+.progress-overview {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.progress-details {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.progress-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.course-name {
+  width: 110px;
+  font-size: 0.85rem;
   font-weight: 500;
 }
 
-/* Виджет прогресса */
-.widget-progress .progress-percent {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--accent);
-}
-
 .progress-bar-container {
-  background: var(--border);
+  flex: 1;
+  background: var(--border, #27272a);
   border-radius: 40px;
-  height: 12px;
-  width: 100%;
-  margin: 16px 0 12px;
+  height: 8px;
   overflow: hidden;
 }
 
 .progress-bar-fill {
-  background: linear-gradient(90deg, var(--accent), #a855f7);
+  background: linear-gradient(90deg, var(--accent, #6366f1), #a855f7);
   height: 100%;
   border-radius: 40px;
-  transition: width 0.3s ease;
+  transition: width 0.3s;
 }
 
-.progress-stats {
+.course-percent {
+  width: 45px;
+  font-size: 0.8rem;
+  color: var(--accent, #6366f1);
+}
+
+.stats-cards {
   display: flex;
-  justify-content: space-between;
-  font-size: 0.85rem;
-  margin-bottom: 12px;
-  opacity: 0.8;
+  justify-content: space-around;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
-.progress-message {
-  font-size: 0.85rem;
-  padding: 10px;
-  background: var(--accent-bg);
-  border-radius: 16px;
+.stat-card {
+  background: var(--bg-secondary, #111113);
+  border-radius: 20px;
+  padding: 20px;
   text-align: center;
-  color: var(--accent);
+  flex: 1;
+  min-width: 100px;
 }
 
-/* Адаптивность для новых виджетов */
+.stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--accent, #6366f1);
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  color: var(--text-secondary, #a1a1aa);
+  margin-top: 8px;
+}
+
+.loading-spinner {
+  text-align: center;
+  padding: 60px;
+  font-size: 1.2rem;
+  color: var(--text-secondary, #a1a1aa);
+}
+
+.error-message {
+  text-align: center;
+  padding: 60px;
+  color: #ef4444;
+}
+
 @media (max-width: 768px) {
-  .dashboard-header {
-    flex-direction: column;
-    align-items: stretch;
+  .dashboard-grid {
+    grid-template-columns: 1fr;
   }
-  .role-switch {
-    justify-content: center;
+  .calendar-grid {
+    gap: 6px;
   }
   .task-card {
     flex-direction: column;
   }
-  .task-status {
-    align-self: flex-start;
-  }
-  .progress-stats {
+  .progress-item {
     flex-direction: column;
+    align-items: flex-start;
     gap: 6px;
-    text-align: center;
+  }
+  .course-name {
+    width: auto;
   }
 }
